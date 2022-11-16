@@ -56,6 +56,10 @@ impl App {
             return Err("App already running".to_string());
         }
 
+        // Load OpenGL Function pointers.
+        let _context = self.sdl_window.gl_create_context().unwrap();
+        let _gl      = gl::load_with(|s| self.sdl_video.gl_get_proc_address(s) as *const std::os::raw::c_void);
+
         // Starting up the Application.
         self.running = true;
         self.focused = true;
@@ -69,8 +73,21 @@ impl App {
                 self.poll_event(event);
             }
 
-            config.update();
-            config.render();
+            if self.focused {
+                config.update();
+
+                // Renders the Application.
+                if self.running {
+                    unsafe {
+                        gl::Clear(gl::COLOR_BUFFER_BIT);
+                        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+                    }
+
+                    config.render();
+    
+                    self.sdl_window.gl_swap_window();
+                }
+            }
 
             // It avoids the high CPU consumption.
             std::thread::sleep(std::time::Duration::new(0, 10000000));
