@@ -1,2 +1,2 @@
 pub mod app;
-pub use app::{ App, Config };
+pub use app::{ App, Configuration };

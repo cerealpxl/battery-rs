@@ -1,13 +1,14 @@
+use crate::graphics::open_gl;
 use sdl2;
 use sdl2::event::{ Event, WindowEvent };
 
 /// Trait that implements main loop callbacks.
 ///
-pub trait Config {
+pub trait Configuration {
     fn startup(&mut self);
     fn shutdown(&mut self);
     fn update(&mut self);
-    fn render(&mut self);
+    fn render(&mut self, app: &mut App);
 }
 
 /// Battery Application.
@@ -19,12 +20,15 @@ pub struct App {
 
     running: bool,
     focused: bool,
+
+    width:  u32,
+    height: u32
 }
 
 impl App {
     /// Creates a new Application.
     ///
-    pub fn create(title: &str, width: u32, height: u32) -> Self {
+    pub fn new(title: &str, width: u32, height: u32) -> Self {
         let sdl_context = sdl2::init().unwrap();
         let sdl_video   = sdl_context.video().unwrap();
         let sdl_window  = sdl_video.window(title, width, height)
@@ -46,19 +50,22 @@ impl App {
 
             running: false,
             focused: true,
+
+            width,
+            height,
         }
     }
 
     /// Starts running the Application.
     ///
-    pub fn start(&mut self, config: &mut impl Config) -> Result<(), String> {
+    pub fn start(mut self, config: &mut impl Configuration) -> Result<(), String> {
         if self.running {
             return Err("App already running".to_string());
         }
 
         // Load OpenGL Function pointers.
         let _context = self.sdl_window.gl_create_context().unwrap();
-        let _gl      = gl::load_with(|s| self.sdl_video.gl_get_proc_address(s) as *const std::os::raw::c_void);
+        let _gl      = open_gl::load(|s| self.sdl_video.gl_get_proc_address(s) as *const std::os::raw::c_void);
 
         // Starting up the Application.
         self.running = true;
@@ -78,13 +85,10 @@ impl App {
 
                 // Renders the Application.
                 if self.running {
-                    unsafe {
-                        gl::Clear(gl::COLOR_BUFFER_BIT);
-                        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-                    }
+                    open_gl::clear(open_gl::ClearMode::Color).unwrap();
+                    open_gl::clear_color(0.0, 0.0, 0.0, 1.0).unwrap();
 
-                    config.render();
-    
+                    config.render(&mut self);
                     self.sdl_window.gl_swap_window();
                 }
             }
@@ -123,5 +127,17 @@ impl App {
 
             _ => {},
         }
+    }
+
+    /// Returns the width of the window.
+    ///
+    pub fn get_width(&self) -> u32 {
+        self.width
+    }
+
+    /// Returns the height of the window.
+    ///
+    pub fn get_height(&self) -> u32 {
+        self.height
     }
 }
