@@ -7,7 +7,7 @@ pub mod graphics;
 pub use graphics::{ Shader, Batcher, Texture, Quad };
 
 pub mod system;
-pub use system::{ App, Configuration, };
+pub use system::{ App, Configuration, KeyCode, MouseButton };
 
 
 #[cfg(test)]
@@ -16,9 +16,9 @@ mod tests {
 
     struct Game;
     impl Configuration for Game {
-        fn startup(&mut self)  {}
-        fn shutdown(&mut self)  {}
-        fn update(&mut self) {}
+        fn startup(&mut self, _app: &mut App)  {}
+        fn shutdown(&mut self, _app: &mut App)  {}
+        fn update(&mut self, _app: &mut App) {}
         fn render(&mut self, _app: &mut App) {}
     }
 
@@ -30,12 +30,19 @@ mod tests {
     struct BatcherGame {
         batcher: Option<graphics::Batcher>,
         texture: graphics::Texture,
+        rect_position: (f32, f32)
     }
 
     impl Configuration for BatcherGame {
-        fn startup(&mut self)  {
+        fn startup(&mut self, app: &mut App)  {
             self.batcher = Some(graphics::Batcher::new());
             self.texture = graphics::Texture::new().from_path("ferris.png").unwrap();
+        }
+
+        fn update(&mut self, app: &mut App) {
+            if app.input.key_pressed(KeyCode::Right) {
+                self.rect_position.0 += 16.0;
+            }
         }
 
         fn render(&mut self, app: &mut App) {
@@ -45,7 +52,7 @@ mod tests {
             batcher.rectangle(16.0, 8.0, 16.0, 16.0);
             batcher.texture(
                 &self.texture, 
-                (16.0, 16.0),
+                self.rect_position,
                 Some(Quad::from_texture((0.0, 0.0), (128.0, 128.0), &self.texture)),
                 Some(0.4),
                 Some((1.4, 1.0)),
@@ -61,8 +68,7 @@ mod tests {
             batcher.present();
         }
 
-        fn shutdown(&mut self)  {}
-        fn update(&mut self) {}
+        fn shutdown(&mut self, app: &mut App) {}
     }
 
     #[test]
@@ -70,6 +76,7 @@ mod tests {
         App::new("Nice window!", 320, 240).start(&mut BatcherGame {
             batcher: None,
             texture: graphics::Texture::empty(),
+            rect_position: (0.0, 0.0)
         }).unwrap();
     }
 }

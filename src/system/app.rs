@@ -1,13 +1,25 @@
 use crate::graphics::open_gl;
+use super::Input;
 use sdl2;
 use sdl2::event::{ Event, WindowEvent };
 
 /// Trait that implements main loop callbacks.
 ///
 pub trait Configuration {
-    fn startup(&mut self);
-    fn shutdown(&mut self);
-    fn update(&mut self);
+    /// Called when starting the Application.
+    /// 
+    fn startup(&mut self, app: &mut App);
+
+    /// Called when closing the Application.
+    ///
+    fn shutdown(&mut self, app: &mut App);
+
+    /// Do logic here. Called in every frame of the Application.
+    ///
+    fn update(&mut self, app: &mut App);
+    
+    /// Called in Application's Rendering state.
+    ///
     fn render(&mut self, app: &mut App);
 }
 
@@ -22,7 +34,9 @@ pub struct App {
     focused: bool,
 
     width:  u32,
-    height: u32
+    height: u32,
+
+    pub input: Input,
 }
 
 impl App {
@@ -53,6 +67,8 @@ impl App {
 
             width,
             height,
+
+            input: Input::new(),
         }
     }
 
@@ -70,18 +86,20 @@ impl App {
         // Starting up the Application.
         self.running = true;
         self.focused = true;
-        config.startup();
+        config.startup(&mut self);
 
         // Main loop.
         let mut events = self.sdl_context.event_pump().unwrap();
 
         while self.running {
+            self.input.update();
+
             for event in events.poll_iter() {
                 self.poll_event(event);
             }
 
             if self.focused {
-                config.update();
+                config.update(&mut self);
 
                 // Renders the Application.
                 if self.running {
@@ -98,7 +116,7 @@ impl App {
         }
 
         // Closing the Application.
-        config.shutdown();
+        config.shutdown(&mut self);
 
         Ok(())
     }
@@ -124,6 +142,27 @@ impl App {
                 }
             },
             Event::Quit { .. } => self.close(),
+            Event::KeyDown { timestamp: _, window_id: _, keycode: _, scancode, keymod: _, repeat: _ } => {
+                match scancode {
+                    Some(code) => self.input.do_key_down(code),
+                    None => {},
+                }
+            },
+            Event::KeyUp { timestamp: _, window_id: _, keycode: _, scancode, keymod: _, repeat: _ } => {
+                match scancode {
+                    Some(code) => self.input.do_key_up(code),
+                    None => {},
+                }
+            },
+            Event::MouseButtonDown { timestamp: _, window_id: _, which: _, mouse_btn, clicks: _, x: _, y: _ } => {
+                self.input.do_mouse_down(mouse_btn);
+            },
+            Event::MouseButtonUp { timestamp: _, window_id: _, which: _, mouse_btn, clicks: _, x: _, y: _ } => {
+                self.input.do_mouse_up(mouse_btn);
+            },
+            Event::MouseMotion { timestamp: _, window_id: _, which: _, mousestate: _, x, y, xrel: _, yrel: _ } => {
+                self.input.do_mouse_move((x as f32, y as f32));
+            },
 
             _ => {},
         }
