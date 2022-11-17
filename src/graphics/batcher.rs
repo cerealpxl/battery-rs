@@ -1,6 +1,6 @@
 use crate::App;
 
-use super::{ open_gl, Shader, Vertex };
+use super::{ open_gl, Shader, Vertex, Texture };
 use glam::{ Mat4, /* vec3 */ };
 
 /// Default Vertex Shader code.
@@ -300,6 +300,110 @@ impl Batcher {
             Vertex::as_shape((x + width, y), self.color),
             Vertex::as_shape((x, y + height), self.color),
             Vertex::as_shape((x + width, y + height), self.color)
+        );
+    }
+    
+    
+    /// Draws a texture.
+    ///
+    pub fn texture(&mut self, 
+        texture:   &Texture, 
+        position:  (f32, f32), 
+        angle:     Option<f32>,
+        scale:     Option<(f32, f32)>,
+        origin:    Option<(f32, f32)>
+    ) {
+        let x      = 0.0;
+        let y      = 0.0;
+        let width  = texture.get_width()  as f32;
+        let height = texture.get_height() as f32;
+
+        let uv0 = (0.0, 0.0);
+        let uv1 = (1.0, 0.0);
+        let uv2 = (0.0, 1.0);
+        let uv3 = (1.0, 1.0);
+
+        let mut pos0 = (x,         y         );
+        let mut pos1 = (x + width, y         );
+        let mut pos2 = (x,         y + height);
+        let mut pos3 = (x + width, y + height);
+        
+        // Origin offset.
+        match origin {
+            Some(origin) => {
+                pos0.0 -= origin.0;
+                pos0.1 -= origin.1;
+                pos1.0 -= origin.0;
+                pos1.1 -= origin.1;
+                pos2.0 -= origin.0;
+                pos2.1 -= origin.1;
+                pos3.0 -= origin.0;
+                pos3.1 -= origin.1;
+            },
+            None => {}
+        }
+
+        // Scale.
+        match scale {
+            Some(scale) => {
+                pos0.0 *= scale.0;
+                pos0.1 *= scale.1;
+                pos1.0 *= scale.0;
+                pos1.1 *= scale.1;
+                pos2.0 *= scale.0;
+                pos2.1 *= scale.1;
+                pos3.0 *= scale.0;
+                pos3.1 *= scale.1;
+            },
+            None => {}
+        }
+
+        // Rotation.
+        match angle {
+            Some(angle) => {
+                let sin = angle.sin();
+                let cos = angle.cos();
+
+                let ox = pos0.0;
+                let oy = pos0.1;
+                pos0.0 = ox * cos - oy * sin;
+                pos0.1 = ox * sin + oy * cos;
+
+                let ox = pos1.0;
+                let oy = pos1.1;
+                pos1.0 = ox * cos - oy * sin;
+                pos1.1 = ox * sin + oy * cos;
+
+                let ox = pos2.0;
+                let oy = pos2.1;
+                pos2.0 = ox * cos - oy * sin;
+                pos2.1 = ox * sin + oy * cos;
+
+                let ox = pos3.0;
+                let oy = pos3.1;
+                pos3.0 = ox * cos - oy * sin;
+                pos3.1 = ox * sin + oy * cos;
+            },
+            None => {}
+        }
+
+        // Translates to the Position.
+        pos0.0 += position.0;
+        pos0.1 += position.1;
+        pos1.0 += position.0;
+        pos1.1 += position.1;
+        pos2.0 += position.0;
+        pos2.1 += position.1;
+        pos3.0 += position.0;
+        pos3.1 += position.1;
+
+        self.push_quad(
+            Some(texture.handle), 
+            BatchModes::Texture,
+            Vertex::as_texture(pos0, uv0, self.color),
+            Vertex::as_texture(pos1, uv1, self.color),
+            Vertex::as_texture(pos2, uv2, self.color),
+            Vertex::as_texture(pos3, uv3, self.color)
         );
     }
 }
