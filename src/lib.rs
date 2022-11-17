@@ -4,7 +4,7 @@ extern crate glam;
 extern crate image;
 
 pub mod graphics;
-pub use graphics::{ Shader, Batcher, };
+pub use graphics::{ Shader, Batcher, Texture, Quad };
 
 pub mod system;
 pub use system::{ App, Configuration, };
@@ -46,6 +46,7 @@ mod tests {
             batcher.texture(
                 &self.texture, 
                 (16.0, 16.0),
+                Some(Quad::from_texture((0.0, 0.0), (128.0, 128.0), &self.texture)),
                 Some(0.4),
                 Some((1.4, 1.0)),
                 None,

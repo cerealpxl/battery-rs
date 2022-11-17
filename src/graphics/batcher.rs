@@ -1,6 +1,6 @@
 use crate::App;
 
-use super::{ open_gl, Shader, Vertex, Texture };
+use super::{ open_gl, Shader, Vertex, Texture, Quad };
 use glam::{ Mat4, /* vec3 */ };
 
 /// Default Vertex Shader code.
@@ -309,19 +309,36 @@ impl Batcher {
     pub fn texture(&mut self, 
         texture:   &Texture, 
         position:  (f32, f32), 
+        quad:      Option<Quad>,
         angle:     Option<f32>,
         scale:     Option<(f32, f32)>,
         origin:    Option<(f32, f32)>
     ) {
-        let x      = 0.0;
-        let y      = 0.0;
-        let width  = texture.get_width()  as f32;
-        let height = texture.get_height() as f32;
+        let mut x      = 0.0;
+        let mut y      = 0.0;
+        let mut width  = texture.get_width()  as f32;
+        let mut height = texture.get_height() as f32;
 
-        let uv0 = (0.0, 0.0);
-        let uv1 = (1.0, 0.0);
-        let uv2 = (0.0, 1.0);
-        let uv3 = (1.0, 1.0);
+        let mut uv0 = (0.0, 0.0);
+        let mut uv1 = (1.0, 0.0);
+        let mut uv2 = (0.0, 1.0);
+        let mut uv3 = (1.0, 1.0);
+
+        match quad {
+            Some(mut quad) => {
+                x      = quad.x;
+                y      = quad.y;
+                width  = quad.width;
+                height = quad.height;
+
+                let uvs = quad.get_vertex_texcoords();
+                uv0 = uvs[0].clone();
+                uv1 = uvs[1].clone();
+                uv2 = uvs[2].clone();
+                uv3 = uvs[3].clone();
+            },
+            None => {}
+        }
 
         let mut pos0 = (x,         y         );
         let mut pos1 = (x + width, y         );
