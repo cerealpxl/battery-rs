@@ -1,6 +1,6 @@
 use crate::App;
 
-use super::{ open_gl, Shader, Vertex, Texture, Quad };
+use super::{ open_gl, Shader, Vertex, Texture, Quad, Canvas };
 use glam::{ Mat4, /* vec3 */ };
 
 /// Default Vertex Shader code.
@@ -191,6 +191,9 @@ impl Batcher {
                 ).unwrap();
             }
         }
+
+        self.vertices.clear();
+        self.batches.clear();
     }
 
     /// Recreates the ortho matrix used for rendering and resize the OpenGL Viewport.
@@ -218,6 +221,29 @@ impl Batcher {
     ///
     pub fn get_color(&mut self) -> (f32, f32, f32, f32) {
         self.color.clone()
+    }
+
+    /// Sets the current render target.
+    ///
+    pub fn set_canvas(&mut self, canvas: &Canvas) {
+        self.present();
+        self.viewport(canvas.get_width() as f32, canvas.get_height() as f32);
+
+        // Flips vertically the ortho matrix.
+        self.matrix = self.matrix *
+            Mat4::from_scale(glam::vec3(1.0, -1.0, 1.0)) *
+            Mat4::from_translation(glam::vec3(0.0, -(canvas.get_height() as f32), 0.0));
+
+        open_gl::bind_framebuffer(open_gl::FramebufferTarget::Framebuffer, canvas.handle).unwrap();
+    }
+
+    /// Resets the current render target.
+    ///
+    pub fn reset_canvas(&mut self, app: &App) {
+        self.present();
+        self.viewport(app.get_width() as f32, app.get_height() as f32);
+
+        open_gl::bind_framebuffer(open_gl::FramebufferTarget::Framebuffer, 0).unwrap();
     }
 
     /// Returns a valid Batch structure.
@@ -248,6 +274,7 @@ impl Batcher {
 
     /// Push a Tri.
     /// 
+    #[inline]
     pub fn push_tri(&mut self, texture: Option<u32>, mode: BatchModes, v0: Vertex, v1: Vertex, v2: Vertex) {
         let mut batch = self.get_batch(mode, texture);
 
@@ -422,5 +449,18 @@ impl Batcher {
             Vertex::as_texture(pos2, uv2, self.color),
             Vertex::as_texture(pos3, uv3, self.color)
         );
+    }
+    
+    /// Draws a canvas.
+    ///
+    pub fn canvas(&mut self, 
+        canvas:    &Canvas, 
+        position:  (f32, f32), 
+        quad:      Option<Quad>,
+        angle:     Option<f32>,
+        scale:     Option<(f32, f32)>,
+        origin:    Option<(f32, f32)>
+    ) {
+        self.texture(&canvas.texture, position, quad, angle, scale, origin);
     }
 }

@@ -4,7 +4,7 @@ extern crate glam;
 extern crate image;
 
 pub mod graphics;
-pub use graphics::{ Shader, Batcher, Texture, Quad };
+pub use graphics::{ Shader, Batcher, Texture, Quad, Canvas };
 
 pub mod system;
 pub use system::{ App, Configuration, KeyCode, MouseButton };
@@ -51,9 +51,11 @@ mod tests {
         }
 
         fn render(&mut self, app: &mut App) {
+            let canvas  = Canvas::new(256, 64);
             let batcher = self.batcher.as_mut().expect("Osh?");
 
             batcher.origin(app);
+            batcher.set_canvas(&canvas);
             batcher.rectangle(16.0, 8.0, 16.0, 16.0);
             batcher.texture(
                 &self.texture, 
@@ -70,6 +72,8 @@ mod tests {
                 (32.0, 48.0),
             );
             batcher.set_color(1.0, 1.0, 1.0, 1.0);
+            batcher.reset_canvas(app);
+            batcher.canvas(&canvas, (32.0, 32.0), None, None, None, None);
             batcher.present();
         }
 
