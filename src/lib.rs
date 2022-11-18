@@ -9,7 +9,6 @@ pub use graphics::{ Shader, Batcher, Texture, Quad };
 pub mod system;
 pub use system::{ App, Configuration, KeyCode, MouseButton };
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -24,7 +23,7 @@ mod tests {
 
     #[test]
     pub fn window_test() {
-        App::new("Nice window!", 320, 240).start(&mut Game {}).unwrap();
+        App::new("Nice window!", 320, 240, 60.0).start(&mut Game {}).unwrap();
     }
 
     struct BatcherGame {
@@ -34,15 +33,21 @@ mod tests {
     }
 
     impl Configuration for BatcherGame {
-        fn startup(&mut self, app: &mut App)  {
+        fn startup(&mut self, _app: &mut App)  {
             self.batcher = Some(graphics::Batcher::new());
             self.texture = graphics::Texture::new().from_path("ferris.png").unwrap();
         }
 
         fn update(&mut self, app: &mut App) {
-            if app.input.key_pressed(KeyCode::Right) {
+            if app.input.key_down(KeyCode::Left) {
+                self.rect_position.0 -= 16.0;
+            }
+            if app.input.key_down(KeyCode::Right) {
                 self.rect_position.0 += 16.0;
             }
+
+            let fps = app.timer.get_fps();
+            app.set_title(fps.to_string().as_ref());
         }
 
         fn render(&mut self, app: &mut App) {
@@ -68,12 +73,12 @@ mod tests {
             batcher.present();
         }
 
-        fn shutdown(&mut self, app: &mut App) {}
+        fn shutdown(&mut self, _app: &mut App) {}
     }
 
     #[test]
     pub fn batcher_test() {
-        App::new("Nice window!", 320, 240).start(&mut BatcherGame {
+        App::new("Nice window!", 320, 240, 60.0).start(&mut BatcherGame {
             batcher: None,
             texture: graphics::Texture::empty(),
             rect_position: (0.0, 0.0)

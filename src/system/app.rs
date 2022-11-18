@@ -1,5 +1,5 @@
 use crate::graphics::open_gl;
-use super::Input;
+use super::{ Timer, Input };
 use sdl2;
 use sdl2::event::{ Event, WindowEvent };
 
@@ -30,19 +30,22 @@ pub struct App {
     sdl_video:   sdl2::VideoSubsystem,
     sdl_window:  sdl2::video::Window,
 
-    running: bool,
-    focused: bool,
+    running:             bool,
+    focused:             bool,
+    run_while_unfocused: bool,
 
+    title:  String,
     width:  u32,
     height: u32,
 
     pub input: Input,
+    pub timer: Timer,
 }
 
 impl App {
     /// Creates a new Application.
     ///
-    pub fn new(title: &str, width: u32, height: u32) -> Self {
+    pub fn new(title: &str, width: u32, height: u32, framerate: f64) -> Self {
         let sdl_context = sdl2::init().unwrap();
         let sdl_video   = sdl_context.video().unwrap();
         let sdl_window  = sdl_video.window(title, width, height)
@@ -62,13 +65,16 @@ impl App {
             sdl_video,
             sdl_window,
 
-            running: false,
-            focused: true,
+            running:             false,
+            focused:             true,
+            run_while_unfocused: false,
 
+            title: String::from(title),
             width,
             height,
 
             input: Input::new(),
+            timer: Timer::new(framerate),
         }
     }
 
@@ -94,12 +100,21 @@ impl App {
         while self.running {
             self.input.update();
 
+            // Process Sdl Events.
             for event in events.poll_iter() {
                 self.poll_event(event);
             }
 
-            if self.focused {
-                config.update(&mut self);
+            if self.focused || self.run_while_unfocused {
+                self.timer.update();
+
+                // Updates the Application when our accumulator exceeds the frame duration.
+                while self.timer.frame_accumulator >= 1.0 / self.timer.frame_rate {
+                    self.timer.frame_counter     += 1;
+                    self.timer.frame_accumulator -= 1.0 / self.timer.frame_rate;
+
+                    config.update(&mut self);
+                }
 
                 // Renders the Application.
                 if self.running {
@@ -168,6 +183,23 @@ impl App {
         }
     }
 
+    /// Sets the size of the window.
+    ///
+    pub fn set_size(&mut self, width: u32, height: u32) {
+        if self.width != width || self.height != height {
+            self.width  = width;
+            self.height = height;
+
+            self.sdl_window.set_size(width, height).unwrap();
+        }
+    }
+
+    /// Returns the size of the window in a tuple.
+    ///
+    pub fn get_size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
     /// Returns the width of the window.
     ///
     pub fn get_width(&self) -> u32 {
@@ -178,5 +210,21 @@ impl App {
     ///
     pub fn get_height(&self) -> u32 {
         self.height
+    }
+
+    /// Sets the title of the Main Window.
+    ///
+    pub fn set_title(&mut self, title: &str) {
+        if self.title != String::from(title) {
+            self.title = String::from(title);
+
+            self.sdl_window.set_title(title).unwrap();
+        }
+    }
+
+    /// Returns the title of the Main Window.
+    ///
+    pub fn get_title(&mut self) -> &str {
+        self.title.as_ref()
     }
 }
