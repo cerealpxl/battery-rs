@@ -1,7 +1,7 @@
 use crate::App;
 
 use super::{ open_gl, Shader, Vertex, Texture, Quad, Canvas };
-use glam::{ Mat4, /* vec3 */ };
+use glam::{ Mat4, Vec2, vec2, vec3 };
 
 /// Default Vertex Shader code.
 ///
@@ -70,6 +70,8 @@ pub struct Batch {
 
     pub indices_count: u32,
     pub indices_start: u32,
+
+    pub elements: u32,
 }
 
 /// A 2D Batcher used to draw shapes, images and textures.
@@ -170,8 +172,8 @@ impl Batcher {
             open_gl::bind_vertex_array(self.vertex_array_object).unwrap();
             open_gl::uniform_matrix_4f(matrix_location, false, &self.matrix.to_cols_array()[0]).unwrap();
             
-            // Assign the current texture.
             for batch in self.batches.iter() {
+                // Assign the current texture.
                 match batch.texture {
                     Some(texture) => {
                         open_gl::active_texture(0).unwrap();
@@ -184,6 +186,7 @@ impl Batcher {
                     }
                 }
                 
+                // Render primitives.
                 open_gl::draw_arrays(
                     open_gl::PrimitiveType::Triangles, 
                     batch.indices_start as i32,
@@ -211,6 +214,18 @@ impl Batcher {
         open_gl::viewport(0, 0, width as i32, height as i32).unwrap();
     }
 
+    /// Sets the Matrix translation.
+    ///
+    pub fn translate(&mut self, x: f32, y: f32) {
+        self.matrix *= Mat4::from_translation(vec3(x, y, 0.0));
+    }
+
+    /// Sets the Matrix scale.
+    ///
+    pub fn scale(&mut self, x: f32, y: f32) {
+        self.matrix *= Mat4::from_scale(vec3(x, y, 1.0));
+    }
+
     /// Sets the active draw color.
     /// 
     pub fn set_color(&mut self, r: f32, g: f32, b: f32, a: f32) {
@@ -230,9 +245,8 @@ impl Batcher {
         self.viewport(canvas.get_width() as f32, canvas.get_height() as f32);
 
         // Flips vertically the ortho matrix.
-        self.matrix = self.matrix *
-            Mat4::from_scale(glam::vec3(1.0, -1.0, 1.0)) *
-            Mat4::from_translation(glam::vec3(0.0, -(canvas.get_height() as f32), 0.0));
+        self.scale(1.0, -1.0);
+        self.translate(0.0, -(canvas.get_height() as f32));
 
         open_gl::bind_framebuffer(open_gl::FramebufferTarget::Framebuffer, canvas.handle).unwrap();
     }
@@ -249,9 +263,8 @@ impl Batcher {
     /// Returns a valid Batch structure.
     /// 
     fn get_batch(&mut self, mode: BatchModes, texture: Option<u32>) -> &mut Batch {
-        // If there is no compatible batch, creates a new.
         if self.batches.len() <= 0 || self.batches[self.batches.len() - 1].mode != mode {
-            // Assign the start index of the batch.
+            // If there is no compatible batch, creates a new.
             let mut indices_start = 0;
 
             if self.vertices.len() > 0 {
@@ -261,6 +274,7 @@ impl Batcher {
             self.batches.push(Batch {
                 mode,
                 texture,
+                elements:      0,
                 indices_count: 0,
                 indices_start,
             });
@@ -279,6 +293,7 @@ impl Batcher {
         let mut batch = self.get_batch(mode, texture);
 
         // Updates the vertex count.
+        batch.elements      += 1;
         batch.indices_count += 3;
 
         // Push vertices.
@@ -294,6 +309,7 @@ impl Batcher {
         let mut batch = self.get_batch(mode, texture);
 
         // Updates the vertex count.
+        batch.elements      += 2;
         batch.indices_count += 6;
 
         // Push vertices.
@@ -330,19 +346,56 @@ impl Batcher {
         );
     }
     
-    
+    /// Draws a hollow rectangle.
+    ///
+    pub fn hollow_rectangle(&mut self, x: f32, y: f32, width: f32, height: f32, thickness: f32) {
+        if thickness > 0.0 {
+            let thick_x = thickness.min(width  / 2.0);
+            let thick_y = thickness.min(height / 2.0);
+
+            self.rectangle(x, y, width, thick_y);
+            self.rectangle(x, y + height - thick_y, width, thick_y);
+            self.rectangle(x, y + thick_y, thick_x, height - thick_y * 2.0);
+            self.rectangle(x + width - thick_x, y + thick_y, thick_x, height - thick_y * 2.0);
+        }
+    }
+
+    /// Draws a circle.
+    ///
+    pub fn circle(&mut self, x: f32, y: f32, radius: f32) {
+        let mut last = Vec2::from_angle(0.0) * radius;
+        let tau      = std::f32::consts::TAU;
+        let step     = 20.0;
+
+        for i in 1..(step as i32 + 1) {
+            let next = Vec2::from_angle((i as f32) / step * tau) * radius;
+
+            self.push_tri(
+                None, 
+                BatchModes::Shape,
+                Vertex::as_shape((x + last.x, y + last.y), self.color),
+                Vertex::as_shape((x + next.x, y + next.y), self.color),
+                Vertex::as_shape((x, y), self.color)
+            );
+
+            last = next;
+        }
+    }
+
     /// Draws a texture.
     ///
-    pub fn texture(&mut self, 
-        texture:   &Texture, 
-        position:  (f32, f32), 
+    pub fn texture(
+        &mut self, 
+        texture:   &Texture,
+        x:         f32,
+        y:         f32,
         quad:      Option<Quad>,
         angle:     Option<f32>,
         scale:     Option<(f32, f32)>,
         origin:    Option<(f32, f32)>
     ) {
-        let mut x      = 0.0;
-        let mut y      = 0.0;
+        let mut tex_x  = 0.0;
+        let mut tex_y  = 0.0;
         let mut width  = texture.get_width()  as f32;
         let mut height = texture.get_height() as f32;
 
@@ -353,8 +406,8 @@ impl Batcher {
 
         match quad {
             Some(mut quad) => {
-                x      = quad.x;
-                y      = quad.y;
+                tex_x  = quad.x;
+                tex_y  = quad.y;
                 width  = quad.width;
                 height = quad.height;
 
@@ -367,22 +420,19 @@ impl Batcher {
             None => {}
         }
 
-        let mut pos0 = (x,         y         );
-        let mut pos1 = (x + width, y         );
-        let mut pos2 = (x,         y + height);
-        let mut pos3 = (x + width, y + height);
+        let mut pos0 = vec2(tex_x,         tex_y);
+        let mut pos1 = vec2(tex_x + width, tex_y);
+        let mut pos2 = vec2(tex_x,         tex_y + height);
+        let mut pos3 = vec2(tex_x + width, tex_y + height);
         
         // Origin offset.
         match origin {
             Some(origin) => {
-                pos0.0 -= origin.0;
-                pos0.1 -= origin.1;
-                pos1.0 -= origin.0;
-                pos1.1 -= origin.1;
-                pos2.0 -= origin.0;
-                pos2.1 -= origin.1;
-                pos3.0 -= origin.0;
-                pos3.1 -= origin.1;
+                let origin = vec2(origin.0, origin.1);
+                pos0 -= origin;
+                pos1 -= origin;
+                pos2 -= origin;
+                pos3 -= origin;
             },
             None => {}
         }
@@ -390,14 +440,11 @@ impl Batcher {
         // Scale.
         match scale {
             Some(scale) => {
-                pos0.0 *= scale.0;
-                pos0.1 *= scale.1;
-                pos1.0 *= scale.0;
-                pos1.1 *= scale.1;
-                pos2.0 *= scale.0;
-                pos2.1 *= scale.1;
-                pos3.0 *= scale.0;
-                pos3.1 *= scale.1;
+                let scale = vec2(scale.0, scale.1);
+                pos0 *= scale;
+                pos1 *= scale;
+                pos2 *= scale;
+                pos3 *= scale;
             },
             None => {}
         }
@@ -405,49 +452,29 @@ impl Batcher {
         // Rotation.
         match angle {
             Some(angle) => {
-                let sin = angle.sin();
-                let cos = angle.cos();
-
-                let ox = pos0.0;
-                let oy = pos0.1;
-                pos0.0 = ox * cos - oy * sin;
-                pos0.1 = ox * sin + oy * cos;
-
-                let ox = pos1.0;
-                let oy = pos1.1;
-                pos1.0 = ox * cos - oy * sin;
-                pos1.1 = ox * sin + oy * cos;
-
-                let ox = pos2.0;
-                let oy = pos2.1;
-                pos2.0 = ox * cos - oy * sin;
-                pos2.1 = ox * sin + oy * cos;
-
-                let ox = pos3.0;
-                let oy = pos3.1;
-                pos3.0 = ox * cos - oy * sin;
-                pos3.1 = ox * sin + oy * cos;
+                let angle = vec2(angle.sin(), angle.cos());
+                pos0 = pos0.rotate(angle);
+                pos1 = pos1.rotate(angle);
+                pos2 = pos2.rotate(angle);
+                pos3 = pos3.rotate(angle);
             },
             None => {}
         }
 
         // Translates to the Position.
-        pos0.0 += position.0;
-        pos0.1 += position.1;
-        pos1.0 += position.0;
-        pos1.1 += position.1;
-        pos2.0 += position.0;
-        pos2.1 += position.1;
-        pos3.0 += position.0;
-        pos3.1 += position.1;
+        let position = vec2(x, y);
+        pos0 += position;
+        pos1 += position;
+        pos2 += position;
+        pos3 += position;
 
         self.push_quad(
             Some(texture.handle), 
             BatchModes::Texture,
-            Vertex::as_texture(pos0, uv0, self.color),
-            Vertex::as_texture(pos1, uv1, self.color),
-            Vertex::as_texture(pos2, uv2, self.color),
-            Vertex::as_texture(pos3, uv3, self.color)
+            Vertex::as_texture(pos0.into(), uv0, self.color),
+            Vertex::as_texture(pos1.into(), uv1, self.color),
+            Vertex::as_texture(pos2.into(), uv2, self.color),
+            Vertex::as_texture(pos3.into(), uv3, self.color)
         );
     }
     
@@ -455,12 +482,13 @@ impl Batcher {
     ///
     pub fn canvas(&mut self, 
         canvas:    &Canvas, 
-        position:  (f32, f32), 
+        x:         f32,
+        y:         f32,
         quad:      Option<Quad>,
         angle:     Option<f32>,
         scale:     Option<(f32, f32)>,
         origin:    Option<(f32, f32)>
     ) {
-        self.texture(&canvas.texture, position, quad, angle, scale, origin);
+        self.texture(&canvas.texture, x, y, quad, angle, scale, origin);
     }
 }

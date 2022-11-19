@@ -13,79 +13,72 @@ pub use system::{ App, Configuration, KeyCode, MouseButton };
 mod tests {
     use super::*;
 
-    struct Game;
-    impl Configuration for Game {
-        fn startup(&mut self, _app: &mut App)  {}
-        fn shutdown(&mut self, _app: &mut App)  {}
-        fn update(&mut self, _app: &mut App) {}
-        fn render(&mut self, _app: &mut App) {}
+    struct HelloWorld {
+        angle:   f32,
+        batcher: Option<Batcher>,
     }
 
-    #[test]
-    pub fn window_test() {
-        App::new("Nice window!", 320, 240, 60.0).start(&mut Game {}).unwrap();
-    }
+    impl Configuration for HelloWorld {
+        /// Creates the Batcher at the Startup.
+        /// This is called after the OpenGL Setup,
+        ///
+        fn startup(&mut self, _app: &mut App) {
+            println!("Hello there.");
 
-    struct BatcherGame {
-        batcher: Option<graphics::Batcher>,
-        texture: graphics::Texture,
-        rect_position: (f32, f32)
-    }
-
-    impl Configuration for BatcherGame {
-        fn startup(&mut self, _app: &mut App)  {
-            self.batcher = Some(graphics::Batcher::new());
-            self.texture = graphics::Texture::new().from_path("ferris.png").unwrap();
+            self.batcher = Some(Batcher::new());
         }
 
-        fn update(&mut self, app: &mut App) {
-            if app.input.key_down(KeyCode::Left) {
-                self.rect_position.0 -= 16.0;
-            }
-            if app.input.key_down(KeyCode::Right) {
-                self.rect_position.0 += 16.0;
-            }
-
-            let fps = app.timer.get_fps();
-            app.set_title(fps.to_string().as_ref());
+        /// Called when the game closes.
+        /// 
+        fn shutdown(&mut self, _app: &mut App) {
+            println!("Bye-bye");
         }
 
+        /// Called every frame of the Application.
+        ///
+        fn update(&mut self, _app: &mut App) {
+            self.angle += 0.1;
+        }
+
+        /// Draws a nice rectangle.
+        ///
         fn render(&mut self, app: &mut App) {
-            let canvas  = Canvas::new(256, 64);
-            let batcher = self.batcher.as_mut().expect("Osh?");
+            let batcher = self.batcher.as_mut().expect("Where is my nice batcher?");
 
+            // Creates a new canvas.
+            let canvas  = Canvas::new(16, 16);
+
+            // Resets the current drawing context.
             batcher.origin(app);
+
+            // Sets the current canvas and draws a rectangle.
             batcher.set_canvas(&canvas);
-            batcher.rectangle(16.0, 8.0, 16.0, 16.0);
-            batcher.texture(
-                &self.texture, 
-                self.rect_position,
-                Some(Quad::from_texture((0.0, 0.0), (128.0, 128.0), &self.texture)),
-                Some(0.4),
-                Some((1.4, 1.0)),
-                None,
-            );
-            batcher.set_color(1.0, 0.0, 0.0, 1.0);
-            batcher.triangle(
-                (16.0, 32.0),
-                (32.0, 32.0),
-                (32.0, 48.0),
-            );
-            batcher.set_color(1.0, 1.0, 1.0, 1.0);
+            batcher.hollow_rectangle(0.0, 0.0, 16.0, 16.0, 2.0);
+
+            // Sends the drawing data to the Canvas.
             batcher.reset_canvas(app);
-            batcher.canvas(&canvas, (32.0, 32.0), None, None, None, None);
+
+            // Draws the Canvas using the center as it origin point.
+            batcher.canvas(
+                &canvas,
+                (app.get_width()  as f32) / 2.0 - 8.0, 
+                (app.get_height() as f32) / 2.0 - 8.0,
+                None,
+                Some(self.angle),
+                None,
+                Some((8.0, 8.0)),
+            );
+                
+            // Finally, draw the screen.
             batcher.present();
         }
-
-        fn shutdown(&mut self, _app: &mut App) {}
     }
 
     #[test]
-    pub fn batcher_test() {
-        App::new("Nice window!", 320, 240, 60.0).start(&mut BatcherGame {
+    pub fn hello_world() {
+        App::new("Nice window!", 320, 240, 60.0).start(&mut HelloWorld {
+            angle:   0.0,
             batcher: None,
-            texture: graphics::Texture::empty(),
-            rect_position: (0.0, 0.0)
         }).unwrap();
     }
 }
