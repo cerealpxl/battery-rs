@@ -178,6 +178,18 @@ impl App {
             Event::MouseMotion { timestamp: _, window_id: _, which: _, mousestate: _, x, y, xrel: _, yrel: _ } => {
                 self.input.do_mouse_move((x as f32, y as f32));
             },
+            Event::ControllerDeviceAdded { timestamp: _, which } => {
+                self.input.do_controller_added(which);
+            },
+            Event::ControllerDeviceRemoved { timestamp: _, which } => {
+                self.input.do_controller_removed(which);
+            },
+            Event::ControllerButtonDown { timestamp: _, which, button } => {
+                self.input.do_controller_down(which, button);
+            },
+            Event::ControllerButtonUp { timestamp: _, which, button } => {
+                self.input.do_controller_up(which, button);
+            },
 
             _ => {},
         }

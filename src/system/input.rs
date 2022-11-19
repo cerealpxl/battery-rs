@@ -1,7 +1,18 @@
 use std::collections::HashSet;
 
-pub type KeyCode     = sdl2::keyboard::Scancode;
-pub type MouseButton = sdl2::mouse::MouseButton;
+pub type KeyCode       = sdl2::keyboard::Scancode;
+pub type MouseButton   = sdl2::mouse::MouseButton;
+pub type GamepadButton = sdl2::controller::Button;
+
+/// Structure that handles gamepad button states.
+/// 
+pub struct Gamepad {
+    down:     HashSet<GamepadButton>,
+    pressed:  HashSet<GamepadButton>,
+    released: HashSet<GamepadButton>,
+
+    guid: u32,
+}
 
 /// Structure that handle the Input behavior.
 ///
@@ -13,6 +24,9 @@ pub struct Input {
     mouse_down:     HashSet<MouseButton>,
     mouse_pressed:  HashSet<MouseButton>,
     mouse_released: HashSet<MouseButton>,
+
+    gamepads:      Vec<Gamepad>,
+    gamepad_limit: u32,
 
     pub mouse_position: (f32, f32),
 }
@@ -30,6 +44,9 @@ impl Input {
             mouse_pressed:  HashSet::new(),
             mouse_released: HashSet::new(),
 
+            gamepads:      Vec::new(),
+            gamepad_limit: 0,
+
             mouse_position: (0.0, 0.0),
         }
     }
@@ -37,53 +54,40 @@ impl Input {
     /// Updates the input state.
     ///
     pub fn update(&mut self) {
-        self.keyboard_pressed  = HashSet::new();
-        self.keyboard_released = HashSet::new();
+        self.keyboard_pressed.clear();
+        self.keyboard_released.clear();
 
-        self.mouse_pressed  = HashSet::new();
-        self.mouse_released = HashSet::new();
+        self.mouse_pressed.clear();
+        self.mouse_released.clear();
+
+        if self.gamepads.len() > 0 {
+            for gamepad in self.gamepads.iter_mut() {
+                gamepad.pressed.clear();
+                gamepad.released.clear();
+            }
+        }
     }
 
-    /// Checks whether the given key is being pressed.
+    //
+    // >> Keyboard
+    //
+
+    /// Check if the key is held down.
     ///
     pub fn key_down(&mut self, key: KeyCode) -> bool {
         self.keyboard_down.contains(&key)
     }
 
-    /// Checks whether the given key has been pressed.
+    /// Check if the key has been pressed.
     ///
     pub fn key_pressed(&mut self, key: KeyCode) -> bool {
         self.keyboard_pressed.contains(&key)
     }
 
-    /// Checks whether the given key has been released.
+    /// Check if the key has been released.
     ///
     pub fn key_released(&mut self, key: KeyCode) -> bool {
         self.keyboard_released.contains(&key)
-    }
-
-    /// Checks whether the given button is being pressed.
-    ///
-    pub fn mouse_down(&mut self, button: MouseButton) -> bool {
-        self.mouse_down.contains(&button)
-    }
-
-    /// Checks whether the given button has been pressed.
-    ///
-    pub fn mouse_pressed(&mut self, button: MouseButton) -> bool {
-        self.mouse_pressed.contains(&button)
-    }
-
-    /// Checks whether the given button has been released.
-    ///
-    pub fn mouse_released(&mut self, button: MouseButton) -> bool {
-        self.mouse_released.contains(&button)
-    }
-
-    /// Returns the mouse position.
-    ///
-    pub fn get_mouse_position(&mut self) -> (f32, f32) {
-        self.mouse_position
     }
 
     /// Updates the given key when pressed.
@@ -103,6 +107,34 @@ impl Input {
         if !self.keyboard_released.contains(&key) {
             self.keyboard_released.insert(key);
         }
+    }
+
+    //
+    // >> Mouse
+    //
+
+    /// Check if the button is held down.
+    ///
+    pub fn mouse_down(&mut self, button: MouseButton) -> bool {
+        self.mouse_down.contains(&button)
+    }
+
+    /// Check if the button has been pressed.
+    ///
+    pub fn mouse_pressed(&mut self, button: MouseButton) -> bool {
+        self.mouse_pressed.contains(&button)
+    }
+
+    /// Checks if the button has been released.
+    ///
+    pub fn mouse_released(&mut self, button: MouseButton) -> bool {
+        self.mouse_released.contains(&button)
+    }
+
+    /// Returns the mouse position.
+    ///
+    pub fn get_mouse_position(&mut self) -> (f32, f32) {
+        self.mouse_position
     }
 
     /// Updates the given button when pressed.
@@ -128,5 +160,103 @@ impl Input {
     ///
     pub fn do_mouse_move(&mut self, position: (f32, f32)) {
         self.mouse_position = position.clone();
+    }
+
+    //
+    // >> Gamepad
+    //
+
+    /// Check if the button is held down.
+    ///
+    pub fn button_down(&mut self, button: GamepadButton) -> bool {
+        for gamepad in self.gamepads.iter(){
+            if gamepad.down.contains(&button) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Check if the button has been pressed.
+    ///
+    pub fn button_pressed(&mut self, button: GamepadButton) -> bool {
+        for gamepad in self.gamepads.iter(){
+            if gamepad.pressed.contains(&button) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Checks if the button has been released.
+    ///
+    pub fn button_released(&mut self, button: GamepadButton) -> bool {
+        for gamepad in self.gamepads.iter(){
+            if gamepad.released.contains(&button) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Gets a compatible gamepad.
+    ///
+    fn get_gamepad(&mut self, guid: u32) -> usize {
+        if self.gamepads.len() > 0 {
+            for i in 0..(self.gamepads.len() - 1) {
+                if self.gamepads[i].guid == guid {
+                    return i;
+                }
+            }
+        }
+
+        self.gamepad_limit as usize
+    }
+
+    /// Called when a gamepad is being added.
+    ///
+    pub fn do_gamepad_added(&mut self, guid: u32) {
+        self.gamepads.push(Gamepad {
+            down:     HashSet::new(),
+            pressed:  HashSet::new(),
+            released: HashSet::new(),
+
+            guid
+        });
+    }
+
+    /// Called when a gamepad is being removed.
+    ///
+    pub fn do_gamepad_removed(&mut self, guid: u32) {
+        let gamepad = self.get_gamepad(guid);
+
+        if gamepad < self.gamepads.len() {
+            self.gamepads.remove(gamepad);
+        }
+    }
+
+    /// Called when a gamepad button is held down.
+    ///
+    pub fn do_gamepad_down(&mut self, guid: u32, button: GamepadButton) {
+        let gamepad = self.get_gamepad(guid);
+
+        if gamepad != self.gamepad_limit as usize {
+            self.gamepads[gamepad].down.insert(button);
+            self.gamepads[gamepad].pressed.insert(button);
+        }
+    }
+
+    /// Called when a gamepad button is being released.
+    ///
+    pub fn do_gamepad_up(&mut self, guid: u32, button: GamepadButton) {
+        let gamepad = self.get_gamepad(guid);
+
+        if gamepad != self.gamepad_limit as usize {
+            self.gamepads[gamepad].down.remove(&button);
+            self.gamepads[gamepad].released.insert(button);
+        }
     }
 }
