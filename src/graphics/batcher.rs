@@ -394,8 +394,6 @@ impl Batcher {
         scale:     Option<(f32, f32)>,
         origin:    Option<(f32, f32)>
     ) {
-        let mut tex_x  = 0.0;
-        let mut tex_y  = 0.0;
         let mut width  = texture.get_width()  as f32;
         let mut height = texture.get_height() as f32;
 
@@ -406,8 +404,6 @@ impl Batcher {
 
         match quad {
             Some(mut quad) => {
-                tex_x  = quad.x;
-                tex_y  = quad.y;
                 width  = quad.width;
                 height = quad.height;
 
@@ -420,10 +416,10 @@ impl Batcher {
             None => {}
         }
 
-        let mut pos0 = vec2(tex_x,         tex_y);
-        let mut pos1 = vec2(tex_x + width, tex_y);
-        let mut pos2 = vec2(tex_x,         tex_y + height);
-        let mut pos3 = vec2(tex_x + width, tex_y + height);
+        let mut pos0 = vec2(0.0,   0.0);
+        let mut pos1 = vec2(width, 0.0);
+        let mut pos2 = vec2(0.0,   height);
+        let mut pos3 = vec2(width, height);
         
         // Origin offset.
         match origin {
@@ -452,11 +448,13 @@ impl Batcher {
         // Rotation.
         match angle {
             Some(angle) => {
-                let angle = vec2(angle.sin(), angle.cos());
-                pos0 = pos0.rotate(angle);
-                pos1 = pos1.rotate(angle);
-                pos2 = pos2.rotate(angle);
-                pos3 = pos3.rotate(angle);
+                if angle != 0.0 {
+                    let angle = vec2(angle.sin(), angle.cos());
+                    pos0 = pos0.rotate(angle);
+                    pos1 = pos1.rotate(angle);
+                    pos2 = pos2.rotate(angle);
+                    pos3 = pos3.rotate(angle);
+                }
             },
             None => {}
         }

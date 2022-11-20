@@ -98,8 +98,6 @@ impl App {
         let mut events = self.sdl_context.event_pump().unwrap();
 
         while self.running {
-            self.input.update();
-
             // Process Sdl Events.
             for event in events.poll_iter() {
                 self.poll_event(event);
@@ -114,6 +112,8 @@ impl App {
                     self.timer.frame_accumulator -= 1.0 / self.timer.frame_rate;
 
                     config.update(&mut self);
+                    
+                    self.input.update();
                 }
 
                 // Renders the Application.

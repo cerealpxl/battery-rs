@@ -41,6 +41,19 @@ impl Quad {
         }
     }
 
+    /// Clones the Quad.
+    ///
+    pub fn clone(&self) -> Self {
+        Self {
+            x:                self.x,
+            y:                self.y,
+            width:            self.width,
+            height:           self.height,
+            vertex_texcoords: self.vertex_texcoords.clone(),
+            vertex_positions: self.vertex_texcoords.clone(),
+        }
+    }
+
     /// Creates a new Quad based in a Texture as Source.
     ///
     pub fn from_texture(position: (f32, f32), size: (f32, f32), texture: &Texture) -> Self {
